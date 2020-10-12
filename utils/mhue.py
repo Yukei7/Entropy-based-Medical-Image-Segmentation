@@ -79,9 +79,11 @@ def get_uncertainty(image, kde=False, off_center=False, info_w=False, stabs=None
 
     return uncertainty
 
+
 def min_max(lst):
     epsilon = 1e-9
     return (lst-np.min(lst)) / (np.max(lst)-np.min(lst) + epsilon)
+
 
 def get_HU(uncertainty, homogeneity):
     HU = []
@@ -100,38 +102,10 @@ def get_weights(image,bdts_o,bdts_b,stabs,fil):
     for idx in range(len(stabs)):
         corres_stab = cv.filter2D(stabs[idx],-1,fil)
         corres_stabs.append(corres_stab)
-        weight = 1-np.exp(-corres_stab)
-#         weight = weight/np.max(weight)
-#         weight = 1-(weight / np.max(weight))
-        
-#         corres_stab = stabs[idx].copy()
-#         for (row,col) in np.argwhere(bdts_o[idx]>1):
-#             effect = 0
-#             for x in [i for i in range(row-step,row+step) if (i!=row) and (i>0) and (i<image.shape[0])]:
-#                 for y in [i for i in range(col-step,col+step) if (i!=col) and (i>0) and (i<image.shape[1])]:
-#                     dist = (x-row)**2 + (y-col)**2
-#                     effect += stabs[idx][x,y]/dist
-#             corres_stab[row,col] += effect
-#         for (row,col) in np.argwhere(bdts_b[idx]>=1):
-#             effect = 0
-#             for x in [i for i in range(row-step,row+step) if (i!=row) and (i>0) and (i<image.shape[0])]:
-#                 for y in [i for i in range(col-step,col+step) if (i!=col) and (i>0) and (i<image.shape[1])]:
-#                     dist = (x-row)**2 + (y-col)**2
-#                     effect += stabs[idx][x,y]/dist
-#             corres_stab[row,col] += effect
-#         corres_stabs.append(corres_stab)
-#         weight = 1-np.exp(-corres_stab)
-        
+        weight = (1-np.exp(-corres_stab)+0.1) / 1.1
         weights.append(weight)
     return corres_stabs,weights
-#     weights = []
-#     denominator = 0
-#     for t in range(len(bdts)):
-#         Dct = bdts[t] / np.sum(bdts[t])
-#         weights.append(stab_ema[t] / Dct)
-#         denominator += (stab_ema[t] / Dct)
-#     weights /= denominator
-#     return min_max(weights)
+
 
 def get_minomajo_ratio(image):
     ratio = np.array([])
@@ -139,6 +113,7 @@ def get_minomajo_ratio(image):
         ratio = np.append(ratio,np.where(image<=i)[0].size / np.where(image>i)[0].size)
     ratio[np.where(ratio>1)] = 1 / ratio[np.where(ratio>1)]
     return ratio
+
 
 def gauss_kernel(kernel_size, sigma):
     kernel = np.zeros((kernel_size, kernel_size))

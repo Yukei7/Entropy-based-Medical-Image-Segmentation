@@ -1,57 +1,61 @@
 import numpy as np
 import pandas as pd
 import talib
+import numba
+from numba import jit,njit
 
-def get_l2_dist(u1, u2):
-    p1, p2 = np.array(u1), np.array(u2)
-    return np.linalg.norm(p2-p1, ord=2)
-
+# numba < 0.54
 
 def get_stability(image, bdt, width=3, r_max=2, neighbours_min=3):
     tmin = np.min(image) + 2
     tmax = np.max(image) - 2
     npix = image.size
     dist_lst = []
-    for t in range(tmin, tmax):
+    for t in tqdm(range(tmin, tmax)):
         # current edge
         idx = np.where(bdt[t - tmin].reshape(image.shape) == 1)
         tmp1, tmp2 = idx
         idx = list(zip(tmp1, tmp2))
-        windows = np.zeros((width,npix))
-
-        for w in range(1,width+1):
-            dist = np.zeros(image.shape)
-            # for each point in the current edge, find the neighbours in the next edge.
-            for (x, y) in idx:
-                if (x == 0) or (y == 0) or (x == image.shape[0] - 1) or (y == image.shape[1] - 1):
-                    continue
-                r = 1
-                neighbour = []
-                while len(neighbour) < neighbours_min and r < r_max:
-                    try:
-                        for m in range(x - r, x + r + 1):
-                            for n in range(y - r, y + r + 1):
-                                if (m<=0) or (n<=0) or (m>=image.shape[0]-1) or (n>=image.shape[1]-1) or (t-tmin+w>=len(bdt)):
-                                    continue
-                                if bdt[t - tmin + w][m, n] == 1:
-                                    neighbour.append((m, n))
-                    except Exception as e:
-                        print(e)
-                        print(m, n)
-                    r += 1
-                if len(neighbour) < neighbours_min:
-                    # something large enough
-                    dist[x, y] = r_max
-                    continue
-                # Calculate the mean value of the position
-                xo, yo = zip(*neighbour)
-                xo, yo = np.mean(xo), np.mean(yo)
-                dist[x, y] = get_l2_dist((x, y), (xo, yo))
-            windows[w-1,] = dist.flatten()
+        windows = __windowing(image, bdt, t, width, r_max, neighbours_min, idx)
         dist_lst.append(np.diff(windows.T,2))
-        
     output = list(map(lambda x: np.sum(np.abs(x),axis=1).reshape(image.shape), dist_lst))
     return output
+
+
+@jit(nopython=True)
+def __windowing(image, bdt, t, width, r_max, neighbours_min, idx):
+    tmin = np.min(image) + 2
+    tmax = np.max(image) - 2
+    npix = image.size
+    windows = np.zeros((width,npix))
+    for w in range(1,width+1):
+        dist = np.zeros(image.shape)
+        # for each point in the current edge, find the neighbours in the next edge.
+        for (x, y) in idx:
+            if (x == 0) or (y == 0) or (x == image.shape[0] - 1) or (y == image.shape[1] - 1):
+                continue
+            r = 1
+            xo = []
+            yo = []
+            while len(xo) < neighbours_min and r < r_max:
+                for m in range(x - r, x + r + 1):
+                    for n in range(y - r, y + r + 1):
+                        if (m<=0) or (n<=0) or (m>=image.shape[0]-1) or (n>=image.shape[1]-1) or (t-tmin+w>=len(bdt)):
+                            continue
+                        if bdt[t - tmin + w][m, n] == 1:
+                            xo.append(m)
+                            yo.append(n)
+                r += 1
+            if len(xo) < neighbours_min:
+                # something large enough
+                dist[x, y] = r_max
+                continue
+            # Calculate the mean value of the position
+            xc, yc = np.mean(np.array(xo)), np.mean(np.array(yo))
+#             print(xc, yc)
+            dist[x, y] = ((xc-x)**2 + (yc-y)**2)**0.5
+        windows[w-1,] = dist.flatten()
+    return windows
 
 
 def min_max(lst):
