@@ -11,7 +11,7 @@ def get_stability(image, bdt, width=3, r_max=2, neighbours_min=3):
     tmax = np.max(image) - 2
     npix = image.size
     dist_lst = []
-    for t in tqdm(range(tmin, tmax)):
+    for t in range(tmin, tmax):
         # current edge
         idx = np.where(bdt[t - tmin].reshape(image.shape) == 1)
         tmp1, tmp2 = idx

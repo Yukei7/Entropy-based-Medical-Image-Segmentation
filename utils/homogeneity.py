@@ -2,21 +2,24 @@
 
 import numpy as np
 import cv2 as cv
+import numba
+from numba import jit,njit
 
 
+@jit(nopython=True)
+def __get_gradvalue(gradImg, gradcount):
+    # grad: gradImg[x,y]
+    max_gradvalue = np.sum(gradcount)
+    gradvalue = np.zeros(gradImg.shape)
+    for i in range(gradImg.shape[0]):
+        for j in range(gradImg.shape[1]):
+            gradvalue[i, j] = np.sum(gradcount[0:gradImg[i, j] + 1]) / max_gradvalue
+    return gradvalue
+            
 def rank_normalize(gradImg):
     # Rank-normalization
     _, gradcount = np.unique(gradImg.flatten(), return_counts=True)
-    gradvalue = np.zeros(gradImg.shape)
-    max_gradvalue = sum(gradcount)
-
-    def get_gradvalue(x, y):
-        return sum(gradcount[0:gradImg[x, y] + 1]) / max_gradvalue
-
-    # grad: gradImg[x,y]
-    for i in range(gradImg.shape[0]):
-        for j in range(gradImg.shape[1]):
-            gradvalue[i, j] = get_gradvalue(i, j)
+    gradvalue = __get_gradvalue(gradImg, gradcount)
     return gradvalue
 
 
@@ -26,8 +29,6 @@ def get_scharr(image):
     scharrx = cv.Scharr(gray_img, ddepth=cv.CV_16S, dx=1, dy=0, scale=1.0, delta=0.0, borderType=cv.BORDER_DEFAULT)
     scharry = cv.Scharr(gray_img, ddepth=cv.CV_16S, dx=0, dy=1, scale=1.0, delta=0.0, borderType=cv.BORDER_DEFAULT)
     gradImg = abs(scharrx) + abs(scharry)
-
-    print('Get Scharr gradient value, done.')
     return gradImg
 
 

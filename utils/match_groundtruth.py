@@ -11,9 +11,9 @@ def get_error_rate(img1,img2):
 
 def get_best_t(img_lst,img_idx,truth_img_lst):
     best_t = []
-    print('======================================')
+    print('='*50)
     print('Finding best threshold by error rate')
-    print('======================================')
+    print('='*50)
     for idx,img in enumerate(img_lst):
         truth = truth_img_lst[idx]
         inten_max = np.max(img)
@@ -26,4 +26,5 @@ def get_best_t(img_lst,img_idx,truth_img_lst):
         least_err = np.argmin(err_lst)
         best_t.append(least_err+inten_min)
         print('Index: {}, done. Best threshold at: {}'.format(img_idx[idx],least_err+inten_min))
+    print('='*50)
     return best_t
