@@ -9,15 +9,18 @@ from newutils.mhue import gauss_kernel
 def get_bound(image, bdts_o, bdts_b):
     edgeness = []
     for t in range(len(bdts_o)):
+        # TODO: filter or not?
+#         fil = gauss_kernel(kernel_size=1, sigma=1)
         fil = gauss_kernel(kernel_size=1, sigma=1)
         # near edge
 #         bdt = bdts_o[t] + bdts_b[t]
         bdt = bdts_o[t]
         edge = np.zeros(shape=bdt.shape)
+        # TODO: BDT setting
         edge[np.where(bdt==1)] = 1
         edge = cv.filter2D(edge,-1,fil)
-        edge[np.where(edge<0.1)] = 0
         edge[np.where(edge>=0.1)] = 1
+        edge[np.where(edge<0.1)] = 0
         edgeness.append(edge.flatten())
     
     # edgeness: (t, flatten_image_pixel)
@@ -52,6 +55,7 @@ def get_scharr_bounding(image, scharr, bdts_o, bdts_b, percentile=80):
         # TODO: normalize? or not?
         tmp = np.sum(scharr_b[t:t+delta],axis=0)
         if np.max(tmp) > 0:
+#             tmp = tmp / np.sum(tmp)
             tmp = tmp / np.max(tmp)
         scharr_b_cum.append(tmp)
     
