@@ -20,6 +20,7 @@ def get_uncertainty(image, kde=False, off_center=False, info_w=False, stabs=None
     t1 = inten_min + 2
     t2 = inten_max - 2
     uncertainty = []
+    epsilon = 1e-6
 
     for i in range(t1, t2):
         # get index of pixels assigned to object/background
@@ -66,8 +67,11 @@ def get_uncertainty(image, kde=False, off_center=False, info_w=False, stabs=None
             obj_rate = np.array(np.where(img>=i)[0].size / img.size)
             mhue_i[np.where(mhue_i < obj_rate)] = mhue_i[np.where(mhue_i < obj_rate)] / (2*obj_rate)
             mhue_i[np.where(mhue_i >= obj_rate)] = (mhue_i[np.where(mhue_i >= obj_rate)]+1-2*obj_rate) / (2-2*obj_rate)
-
+        
         u = (-mhue_i) * np.log(mhue_i) - (1-mhue_i) * np.log(1-mhue_i)
+        
+        u[np.isnan(u)] = 0
+        
         if info_w:
             # Weighted Information Entropy
             # weight the impurity with context info(distance, stability)
@@ -102,7 +106,7 @@ def get_weights(image,bdts_o,bdts_b,stabs,fil):
     for idx in range(len(stabs)):
         corres_stab = cv.filter2D(stabs[idx],-1,fil)
         corres_stabs.append(corres_stab)
-        weight = (1-np.exp(-corres_stab)+0.1) / 1.1
+        weight = 1-np.exp(-corres_stab)
         weights.append(weight)
     return corres_stabs,weights
 

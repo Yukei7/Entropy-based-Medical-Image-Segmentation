@@ -13,8 +13,8 @@ def get_bound(image, bdts_o, bdts_b):
 #         fil = gauss_kernel(kernel_size=1, sigma=1)
         fil = gauss_kernel(kernel_size=1, sigma=1)
         # near edge
-#         bdt = bdts_o[t] + bdts_b[t]
-        bdt = bdts_o[t]
+        bdt = bdts_o[t] + bdts_b[t]
+#         bdt = bdts_o[t]
         edge = np.zeros(shape=bdt.shape)
         # TODO: BDT setting
         edge[np.where(bdt==1)] = 1

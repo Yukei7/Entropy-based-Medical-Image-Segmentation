@@ -41,7 +41,10 @@ def __get_gradvalue_mhue(gradImg, indices, gradcount):
         for j in range(gradImg.shape[1]):
             gradvalue[i, j] = np.sum(gradcount[0:np.argwhere(indices==gradImg[i, j])[0,0] + 1]) / max_gradvalue
     return gradvalue
-            
+
+def normalize_by_var(gradImg):
+    return 1 - np.exp(-((gradImg/255)**2/(np.var(gradImg)/gradImg.size)))
+
     
 def rank_normalize_mhue(gradImg):
     # Rank-normalization

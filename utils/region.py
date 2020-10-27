@@ -25,16 +25,20 @@ def get_score(image, uncertainty, homogeneity, kernel_size=7, bounding=False):
 def __conv(u,u_pad,scharr_pad,mid_kernel):
     kernel_size = mid_kernel * 2 + 1
     convoluted = np.zeros(u.shape)
+    max_scharr = np.max(scharr_pad)
     for i in range(u.shape[0]):
         for j in range(u.shape[1]):
-            conv_u = u_pad[i:i+2*mid_kernel+1,j:j+2*mid_kernel+1].flatten()
-            conv_scharr = scharr_pad[i:i+2*mid_kernel+1,j:j+2*mid_kernel+1].flatten()
-            # rank
-            u_rank = conv_u.argsort()
-            u_rank = u_rank - np.min(u_rank) + 1
-            # TODO: penalize?
-            kernel_weight = 2*(u_rank/(kernel_size**2))-1
-            convoluted[i,j] = np.sum(kernel_weight*conv_scharr)
+            conv_u = u_pad[i:i+2*mid_kernel+1,j:j+2*mid_kernel+1].copy().flatten()
+            conv_scharr = scharr_pad[i:i+2*mid_kernel+1,j:j+2*mid_kernel+1].copy().flatten()
+#             # rank
+#             u_rank = conv_u.argsort()
+#             u_rank = u_rank - np.min(u_rank) + 1
+#             # TODO: penalize?
+#             kernel_weight = (2*(u_rank/(kernel_size**2))-1)
+
+            kernel_weight = conv_u.copy()
+
+            convoluted[i,j] = np.sum(kernel_weight*conv_scharr) - np.sum(kernel_weight*(max_scharr-conv_scharr))
     return convoluted
 
 

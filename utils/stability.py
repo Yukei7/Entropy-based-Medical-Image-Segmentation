@@ -10,51 +10,64 @@ def get_stability(image, bdt, width=3, r_max=2, neighbours_min=3):
     tmin = np.min(image) + 2
     tmax = np.max(image) - 2
     npix = image.size
-    dist_lst = []
+    stab_lst = []
     for t in range(tmin, tmax):
         # current edge
         idx = np.where(bdt[t - tmin].reshape(image.shape) == 1)
         tmp1, tmp2 = idx
-        idx = list(zip(tmp1, tmp2))
-        windows = __windowing(image, bdt, t, width, r_max, neighbours_min, idx)
-        dist_lst.append(np.diff(windows.T,2))
-    output = list(map(lambda x: np.sum(np.abs(x),axis=1).reshape(image.shape), dist_lst))
-    return output
+        idx_lst = list(zip(tmp1, tmp2))
+        windows = __windowing(image, bdt, t, width, r_max, neighbours_min, idx_lst)
+        # Absolute sum of second order differences
+        window_diff = np.abs(np.diff(windows.T,2))
+        # unstab -> stab
+        window_diff = np.exp(-window_diff).reshape(image.shape)
+        
+        stab = np.zeros(image.shape)
+#         print(stab.shape, window_diff.shape, idx.shape)
+        stab[idx] = window_diff[idx]
+        stab_lst.append(stab)
+    return stab_lst
 
 
 @jit(nopython=True)
 def __windowing(image, bdt, t, width, r_max, neighbours_min, idx):
+    # assume width is odd
+    mid_width = width // 2
+    
     tmin = np.min(image) + 2
     tmax = np.max(image) - 2
     npix = image.size
     windows = np.zeros((width,npix))
-    for w in range(1,width+1):
+    window_counter = 0
+    for w in range(-mid_width,mid_width+1):
+        if w == 0:
+            continue
         dist = np.zeros(image.shape)
         # for each point in the current edge, find the neighbours in the next edge.
         for (x, y) in idx:
             if (x == 0) or (y == 0) or (x == image.shape[0] - 1) or (y == image.shape[1] - 1):
                 continue
             r = 1
-            xo = []
-            yo = []
-            while len(xo) < neighbours_min and r < r_max:
+            cord = []
+            while len(cord) < neighbours_min and r < r_max:
                 for m in range(x - r, x + r + 1):
                     for n in range(y - r, y + r + 1):
                         if (m<=0) or (n<=0) or (m>=image.shape[0]-1) or (n>=image.shape[1]-1) or (t-tmin+w>=len(bdt)):
                             continue
-                        if bdt[t - tmin + w][m, n] == 1:
-                            xo.append(m)
-                            yo.append(n)
+                        if bdt[t - tmin + w][m, n] == 1 and [m, n] not in cord:
+                            cord.append([m, n])
                 r += 1
-            if len(xo) < neighbours_min:
+            if len(cord) < neighbours_min:
                 # something large enough
                 dist[x, y] = r_max
                 continue
             # Calculate the mean value of the position
-            xc, yc = np.mean(np.array(xo)), np.mean(np.array(yo))
-#             print(xc, yc)
+            cordt = np.array(cord)
+            xo, yo = cordt[:, 0], cordt[:, 1]
+            xc, yc = np.mean(xo), np.mean(yo)
             dist[x, y] = ((xc-x)**2 + (yc-y)**2)**0.5
-        windows[w-1,] = dist.flatten()
+        windows[window_counter,] = dist.flatten()
+        window_counter += 1
     return windows
 
 
