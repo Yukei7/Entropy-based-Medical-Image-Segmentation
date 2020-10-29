@@ -36,9 +36,11 @@ def __conv(u,u_pad,scharr_pad,mid_kernel):
 #             # TODO: penalize?
 #             kernel_weight = (2*(u_rank/(kernel_size**2))-1)
 
+            # origin
             kernel_weight = conv_u.copy()
-
-            convoluted[i,j] = np.sum(kernel_weight*conv_scharr) - np.sum(kernel_weight*(max_scharr-conv_scharr))
+#             convoluted[i,j] = np.sum(kernel_weight*conv_scharr) - np.sum(kernel_weight*(max_scharr-conv_scharr))
+            lmbda = np.median(conv_scharr)
+            convoluted[i,j] = np.sum(kernel_weight*conv_scharr) - lmbda*np.sum(kernel_weight)
     return convoluted
 
 

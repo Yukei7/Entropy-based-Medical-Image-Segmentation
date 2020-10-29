@@ -10,7 +10,6 @@ def get_bound(image, bdts_o, bdts_b):
     edgeness = []
     for t in range(len(bdts_o)):
         # TODO: filter or not?
-#         fil = gauss_kernel(kernel_size=1, sigma=1)
         fil = gauss_kernel(kernel_size=1, sigma=1)
         # near edge
         bdt = bdts_o[t] + bdts_b[t]
@@ -39,6 +38,7 @@ def get_bound(image, bdts_o, bdts_b):
 def get_scharr_bounding(image, scharr, bdts_o, bdts_b, percentile=80):
     lower, upper = get_bound(image, bdts_o, bdts_b)
     delta = np.percentile(upper-lower,percentile)
+    # assure delta is odd
     delta = int(delta + ((delta+1)%2))
     scharr_b = []
     for t in range(np.min(image)+2, np.max(image)-2):
