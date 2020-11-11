@@ -4,6 +4,7 @@ import cv2 as cv
 import numba
 from numba import jit,njit
 from newutils.mhue import gauss_kernel
+import pandas as pd
 
 
 def get_bound(image, bdts_o, bdts_b):
@@ -17,6 +18,7 @@ def get_bound(image, bdts_o, bdts_b):
         edge = np.zeros(shape=bdt.shape)
         # TODO: BDT setting
         edge[np.where(bdt==1)] = 1
+        edge[np.where(image==t+np.min(image)+2)] = 1
         edge = cv.filter2D(edge,-1,fil)
         edge[np.where(edge>=0.1)] = 1
         edge[np.where(edge<0.1)] = 0
@@ -37,13 +39,26 @@ def get_bound(image, bdts_o, bdts_b):
 
 def get_scharr_bounding(image, scharr, bdts_o, bdts_b, percentile=80):
     lower, upper = get_bound(image, bdts_o, bdts_b)
-    delta = np.percentile(upper-lower,percentile)
+    
+    # adaptive delta
+    tmp = np.array([upper-lower, image.flatten()])
+    lst = pd.DataFrame(tmp.T,columns=['delta', 'gray'])
+    tmp = pd.DataFrame(index=np.arange(0,256))
+    tmp['mean'] = lst.groupby('gray').agg(mean=pd.NamedAgg(column='delta', aggfunc='mean'))
+    delta_lst = np.round(tmp.interpolate()).to_numpy(dtype=np.int16)
+    
+    # old
+    # delta = np.percentile(upper-lower,percentile)
+    # delta = delta + (delta+1)%2
     # assure delta is odd
-    delta = int(delta + ((delta+1)%2))
+    delta_lst = (delta_lst + ((delta_lst+1)%2))[:,0]
     scharr_b = []
     for t in range(np.min(image)+2, np.max(image)-2):
         fil = (t > lower) & (t < upper)
-        scharr_b.append(scharr * fil.reshape(image.shape))
+        sch = scharr * fil.reshape(image.shape)
+        # rescale?
+        # sch = 1 - np.exp(-(sch**2/(np.var(sch)/gradImg.size)))
+        scharr_b.append(sch)
         
     scharr_b_cum = []
     half_delta = delta // 2
@@ -52,11 +67,9 @@ def get_scharr_bounding(image, scharr, bdts_o, bdts_b, percentile=80):
     scharr_b_pad.extend([scharr_b[-1] for _ in range(half_delta)])
 
     for t in range(len(scharr_b)):
-        # TODO: normalize? or not?
         tmp = np.sum(scharr_b[t:t+delta],axis=0)
         if np.max(tmp) > 0:
-#             tmp = tmp / np.sum(tmp)
             tmp = tmp / np.max(tmp)
         scharr_b_cum.append(tmp)
     
-    return scharr_b_cum, delta
+    return scharr_b_cum, delta_lst

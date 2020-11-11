@@ -16,9 +16,17 @@ def get_score(image, uncertainty, homogeneity, kernel_size=7, bounding=False):
             h = homogeneity[i].reshape(image.shape)
         else:
             h = homogeneity.copy()
-        u_pad = cv.copyMakeBorder(u, mid_kernel, mid_kernel, mid_kernel, mid_kernel, cv.BORDER_REPLICATE)
-        scharr_pad = cv.copyMakeBorder(h, mid_kernel, mid_kernel, mid_kernel, mid_kernel, cv.BORDER_REPLICATE)
-        convoluted = __conv(u,u_pad,scharr_pad,mid_kernel)
+        # u_pad = cv.copyMakeBorder(u, mid_kernel, mid_kernel, mid_kernel, mid_kernel, cv.BORDER_REPLICATE)
+        # scharr_pad = cv.copyMakeBorder(h, mid_kernel, mid_kernel, mid_kernel, mid_kernel, cv.BORDER_REPLICATE)
+        # convoluted = __conv(u,u_pad,scharr_pad,mid_kernel)
+        
+        convoluted = np.multiply(u,h)
+        # fil = gauss_kernel(3,1)
+        fil = np.ones((3,3))
+        convoluted = __conv2d(convoluted, fil, stride=1, padding='same')
+        # unpad
+        penalize = np.multiply(__pool2d(convoluted,kernel_size,pool_mode='median'),__pool2d(convoluted,kernel_size,pool_mode='sum'))
+        convoluted = convoluted - penalize
         conv.append(convoluted)
     return conv
 
@@ -60,6 +68,62 @@ def __softmax(x):
     return exp_x/np.sum(exp_x)
 
 
+def __pool2d(A, kernel_size, stride=1, padding='same', pool_mode='max'):
+    '''
+    2D Pooling
+
+    Parameters:
+        A: input 2D array
+        kernel_size: int, the size of the window
+        stride: int, the stride of the window
+        padding: int, implicit zero paddings on both sides of the input
+        pool_mode: string, 'max', 'avg' or 'sum'
+    '''
+    if padding == 'same':
+        padding = int((kernel_size - 1) // 2)
+    
+    # Padding
+    A = np.pad(A, padding, mode='edge')
+
+    # Window view of A
+    output_shape = ((A.shape[0] - kernel_size)//stride + 1, (A.shape[1] - kernel_size)//stride + 1)
+    kernel_size = (kernel_size, kernel_size)
+    A_w = as_strided(A, shape=output_shape+kernel_size, strides=(stride*A.strides[0],stride*A.strides[1])+A.strides)
+    A_w = A_w.reshape(-1, *kernel_size)
+
+    # Return the result of pooling
+    if pool_mode == 'max':
+        return A_w.max(axis=(1,2)).reshape(output_shape)
+    elif pool_mode == 'avg':
+        return A_w.mean(axis=(1,2)).reshape(output_shape)
+    elif pool_mode == 'sum':
+        return A_w.sum(axis=(1,2)).reshape(output_shape)
+    elif pool_mode == 'median':
+        return np.median(A_w,axis=(1,2)).reshape(output_shape)
+
+    
+def __conv2d(A, kernel, stride=1, padding='same'):
+    '''
+    2D Pooling
+
+    Parameters:
+        A: input 2D array
+        stride: int, the stride of the window
+    '''
+    kernel_size = (kernel.shape[0], kernel.shape[1])
+    if padding == 'same':
+        padding = int((kernel_size[0] - 1) // 2)
+    # Padding
+    A = np.pad(A, padding, mode='edge')
+    
+    # Window view of A
+    output_shape = ((A.shape[0] - kernel_size[0])//stride + 1, (A.shape[1] - kernel_size[1])//stride + 1)
+    A_w = as_strided(A, shape=output_shape+kernel_size, strides=(stride*A.strides[0],stride*A.strides[1])+A.strides)
+    A_w = A_w.reshape(-1, *kernel_size)
+
+    f = lambda x,y:x*kernel
+    return np.sum(np.apply_over_axes(f,A_w,(1,2)),axis=(1,2)).reshape(output_shape)
+    
 
 def gauss_kernel(kernel_size, sigma):
     kernel = np.zeros((kernel_size, kernel_size))

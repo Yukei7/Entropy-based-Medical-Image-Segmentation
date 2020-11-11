@@ -5,6 +5,7 @@ import numba
 from numba import jit,njit
 import cv2 as cv
 
+# numba < 0.54
 
 def get_stability(image, bdt, width=8):
     tmin = np.min(image) + 2
@@ -15,7 +16,6 @@ def get_stability(image, bdt, width=8):
     for t in range(tmin, tmax):
         idx = np.where(bdt[t - tmin].reshape(image.shape) == 1)
         windows = np.zeros((width,npix))
-        window_counter = 0
         mid_width = width // 2
         for w in range(1, mid_width+1):
             if t - tmin + w >= len(bdt) or t - tmin + w < 0:
@@ -31,8 +31,7 @@ def get_stability(image, bdt, width=8):
 
             edge2not = cv.bitwise_not(edge2)
             dist = cv.distanceTransform(edge2not, distanceType=cv.DIST_L2, maskSize=3, dstType=cv.CV_32F)
-            res = cv.copyTo(dist, edge1)
-            windows[window_counter,] = dist.flatten()
+            windows[mid_width+w-1,] = dist.flatten()
 
             w2 = -w
             # next edge
@@ -40,17 +39,19 @@ def get_stability(image, bdt, width=8):
             edge2[bdt[t - tmin + w2].reshape(image.shape) == 1] = 255
             edge2not = cv.bitwise_not(edge2)
             dist = cv.distanceTransform(edge2not, distanceType=cv.DIST_L2, maskSize=3, dstType=cv.CV_32F)
-            res = res + cv.copyTo(dist, edge1)
-            windows[window_counter,] += dist.flatten()
-            window_counter += 1
+            windows[w-1,] = dist.flatten()
 
 
         # Absolute sum of second order differences
+        # The larger the difference, the more unstable.
         window_diff = np.sum(np.abs(np.diff(windows.T,2)),axis=1).reshape(image.shape)
+        
         # unstab -> stab?
         # window_diff = np.exp(-window_diff)
-        window_diff = 1 - np.exp(-window_diff)
         
+        window_diff = 1-np.exp(-window_diff)
+        
+        # take only the edge
         stab = np.zeros(image.shape)
         stab[idx] = window_diff[idx]
         stab_lst.append(stab)

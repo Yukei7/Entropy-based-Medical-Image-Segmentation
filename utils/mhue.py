@@ -123,9 +123,9 @@ def gauss_kernel(kernel_size, sigma):
     kernel = np.zeros((kernel_size, kernel_size))
     center = kernel_size//2
     if sigma<=0:
-        sigma = ((kernel_size-1)*0.5-1)*0.3+0.8
+        raise ValueError('sigma should be non-negative')
     s = sigma**2
-    sum_val =  0
+    sum_val = 0
     for i in range(kernel_size):
         for j in range(kernel_size):
             x, y = i-center, j-center
