@@ -9,6 +9,31 @@ def get_error_rate(img1,img2):
     match_pix = np.sum(img1!=img2)
     return match_pix/n_pix
 
+def get_jaccard(pred, label, label_index=1):
+    # intput: labels image, start from 0
+    # pred {0,1}
+    if pred.size != label.size:
+        raise ValueError('The size of image is different.')    
+    
+    union = pred.copy()
+    union[np.where(label==label_index)] = 1
+    union = np.sum(union==1)
+    
+    intersect = np.zeros(pred.shape)
+    intersect[np.where((pred==1) & (label==label_index))] = 1
+    intersect = np.sum(intersect==1)
+    return intersect/union
+
+def get_dice(pred, label, label_index=1):
+    # intput: labels image, start from 0
+    if pred.size != label.size:
+        raise ValueError('The size of image is different.')    
+    intersect = np.zeros(pred.shape)
+    intersect[np.where((pred==1) & (label>=label_index))] = 1
+    intersect = np.sum(intersect==1)
+    
+    return 2*intersect/(np.sum(pred==1)+np.sum(label>=label_index))
+
 def get_best_t(img_lst,img_idx,truth_img_lst):
     best_t = []
     print('='*50)

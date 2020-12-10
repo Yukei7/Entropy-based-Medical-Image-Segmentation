@@ -3,58 +3,72 @@ import pandas as pd
 import talib
 import numba
 from numba import jit,njit
-import cv2 as cv
 
+# numba < 0.54
 
-def get_stability(image, bdt, width=8):
+def get_stability(image, bdt, width=3, r_max=2, neighbours_min=3):
     tmin = np.min(image) + 2
     tmax = np.max(image) - 2
     npix = image.size
     stab_lst = []
-
     for t in range(tmin, tmax):
+        # current edge
         idx = np.where(bdt[t - tmin].reshape(image.shape) == 1)
-        windows = np.zeros((width,npix))
-        window_counter = 0
-        mid_width = width // 2
-        for w in range(1, mid_width+1):
-            if t - tmin + w >= len(bdt) or t - tmin + w < 0:
-                continue
-                
-            res = np.zeros(image.shape)
-            # current edge
-            edge1 = np.zeros(image.shape, dtype=np.uint8)
-            edge1[bdt[t - tmin].reshape(image.shape) == 1] = 255
-            # next edge
-            edge2 = np.zeros(image.shape, dtype=np.uint8)
-            edge2[bdt[t - tmin + w].reshape(image.shape) == 1] = 255
-
-            edge2not = cv.bitwise_not(edge2)
-            dist = cv.distanceTransform(edge2not, distanceType=cv.DIST_L2, maskSize=3, dstType=cv.CV_32F)
-            res = cv.copyTo(dist, edge1)
-            windows[window_counter,] = dist.flatten()
-
-            w2 = -w
-            # next edge
-            edge2 = np.zeros(image.shape, dtype=np.uint8)
-            edge2[bdt[t - tmin + w2].reshape(image.shape) == 1] = 255
-            edge2not = cv.bitwise_not(edge2)
-            dist = cv.distanceTransform(edge2not, distanceType=cv.DIST_L2, maskSize=3, dstType=cv.CV_32F)
-            res = res + cv.copyTo(dist, edge1)
-            windows[window_counter,] += dist.flatten()
-            window_counter += 1
-
-
+        tmp1, tmp2 = idx
+        idx_lst = list(zip(tmp1, tmp2))
+        windows = __windowing(image, bdt, t, width, r_max, neighbours_min, idx_lst)
         # Absolute sum of second order differences
-        window_diff = np.sum(np.abs(np.diff(windows.T,2)),axis=1).reshape(image.shape)
+        window_diff = np.sum(np.abs(np.diff(windows.T,1)),axis=1)
         # unstab -> stab?
-        # window_diff = np.exp(-window_diff)
-        window_diff = 1 - np.exp(-window_diff)
+        window_diff = (1-np.exp(-window_diff)).reshape(image.shape)
         
         stab = np.zeros(image.shape)
+#         print(stab.shape, window_diff.shape, idx.shape)
         stab[idx] = window_diff[idx]
         stab_lst.append(stab)
     return stab_lst
+
+
+@jit(nopython=True)
+def __windowing(image, bdt, t, width, r_max, neighbours_min, idx):
+    # assume width is odd
+    mid_width = width // 2
+    
+    tmin = np.min(image) + 2
+    tmax = np.max(image) - 2
+    npix = image.size
+    windows = np.zeros((width,npix))
+    window_counter = 0
+    for w in range(-mid_width,mid_width+1):
+        if w == 0:
+            continue
+        dist = np.zeros(image.shape)
+        # for each point in the current edge, find the neighbours in the next edge.
+        for (x, y) in idx:
+            if (x == 0) or (y == 0) or (x == image.shape[0] - 1) or (y == image.shape[1] - 1):
+                continue
+            r = 1
+            cord = []
+            while len(cord) < neighbours_min and r < r_max:
+                for m in range(x - r, x + r + 1):
+                    for n in range(y - r, y + r + 1):
+                        if (m<=0) or (n<=0) or (m>=image.shape[0]-1) or (n>=image.shape[1]-1) or (t-tmin+w>=len(bdt)):
+                            continue
+                        if bdt[t - tmin + w][m, n] == 1 and [m, n] not in cord:
+                            cord.append([m, n])
+                r += 1
+            if len(cord) < neighbours_min:
+                # something large enough
+                dist[x, y] = r_max
+                continue
+            # Calculate the mean value of the position
+            cordt = np.array(cord)
+            xo, yo = cordt[:, 0], cordt[:, 1]
+            xc, yc = np.mean(xo), np.mean(yo)
+            dist[x, y] = ((xc-x)**2 + (yc-y)**2)**0.5
+        windows[window_counter,] = dist.flatten()
+        window_counter += 1
+    return windows
 
 
 def min_max(lst):

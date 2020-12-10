@@ -26,6 +26,8 @@ def get_uncertainty(image, kde=False, off_center=False, info_w=False, stabs=None
         # get index of pixels assigned to object/background
         index_o = np.where((img >= i) & (img != 0))
         index_b = np.where((img < i) & (img != 0))
+#         index_o = np.where(img >= i)
+#         index_b = np.where(img < i)
         # calculate theta(prob of the pixels belong to object/background)
         nums = np.size(index_o[0])
         active_rate = nums / n_pixels
@@ -75,11 +77,14 @@ def get_uncertainty(image, kde=False, off_center=False, info_w=False, stabs=None
         if info_w:
             # Weighted Information Entropy
             # weight the impurity with context info(distance, stability)
+            tmp = np.max(u)
             u = u.flatten() * weights[i-t1].flatten()
+            # rescale
+            if np.max(u)!=0:
+                u *= tmp/np.max(u)
+                
+        u[np.isnan(u)] = 0
         uncertainty.append(u)
-
-    for i in range(len(uncertainty)):
-        uncertainty[i][np.isnan(uncertainty[i])] = 0
 
     return uncertainty
 

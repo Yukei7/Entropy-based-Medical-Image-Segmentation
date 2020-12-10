@@ -44,7 +44,7 @@ def get_stability(image, bdt, width=8):
 
         # Absolute sum of second order differences
         # The larger the difference, the more unstable.
-        window_diff = np.sum(np.abs(np.diff(windows.T,2)),axis=1).reshape(image.shape)
+        window_diff = np.sum(np.abs(np.diff(windows.T,1)),axis=1).reshape(image.shape)
         
         # unstab -> stab?
         # window_diff = np.exp(-window_diff)

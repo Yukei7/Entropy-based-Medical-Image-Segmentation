@@ -28,6 +28,18 @@ def __conv(u,u_pad,scharr_pad,mid_kernel):
     convoluted = np.zeros(u.shape)
     max_scharr = np.max(scharr_pad)
     
+    # gaussian
+    fil = np.zeros((kernel_size,kernel_size))
+    center = kernel_size//2
+    sum_val = 0
+    s = 1
+    for i in range(kernel_size):
+        for j in range(kernel_size):
+            x, y = i-center, j-center
+            fil[i, j] = np.exp(-(x**2+y**2)/2*s)
+            sum_val += fil[i, j]
+    fil = fil/sum_val
+    
     for i in range(u.shape[0]):
         for j in range(u.shape[1]):
             conv_u = u_pad[i:i+2*mid_kernel+1,j:j+2*mid_kernel+1].copy().flatten()
@@ -40,8 +52,10 @@ def __conv(u,u_pad,scharr_pad,mid_kernel):
 
             # origin
             kernel_weight = conv_u.copy()
-            lmbda = np.median(kernel_weight)
-            convoluted[i,j] = np.sum(kernel_weight*conv_scharr) - lmbda*np.sum(kernel_weight)
+            lmbda = np.max(kernel_weight)
+            # lmbda = np.median(kernel_weight)
+            convoluted[i,j] = np.sum(fil.flatten()*kernel_weight*conv_scharr) - lmbda*np.sum(fil.flatten()*kernel_weight)
+            # convoluted[i,j] -= lmbda*kernel_weight
             
 #             kernel_weight = conv_u.copy()
 #             tp = np.sum(kernel_weight*conv_scharr)

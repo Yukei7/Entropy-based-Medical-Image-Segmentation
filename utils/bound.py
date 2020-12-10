@@ -40,18 +40,19 @@ def get_bound(image, bdts_o, bdts_b):
 def get_scharr_bounding(image, scharr, bdts_o, bdts_b, percentile=80):
     lower, upper = get_bound(image, bdts_o, bdts_b)
     
-    # adaptive delta
-    tmp = np.array([upper-lower, image.flatten()])
-    lst = pd.DataFrame(tmp.T,columns=['delta', 'gray'])
-    tmp = pd.DataFrame(index=np.arange(0,256))
-    tmp['mean'] = lst.groupby('gray').agg(mean=pd.NamedAgg(column='delta', aggfunc='mean'))
-    delta_lst = np.round(tmp.interpolate()).to_numpy(dtype=np.int16)
+#     # adaptive delta
+#     tmp = np.array([upper-lower, image.flatten()])
+#     lst = pd.DataFrame(tmp.T,columns=['delta', 'gray'])
+#     tmp = pd.DataFrame(index=np.arange(0,256))
+#     tmp['mean'] = lst.groupby('gray').agg(mean=pd.NamedAgg(column='delta', aggfunc='mean'))
+#     delta_lst = np.round(tmp.interpolate()).to_numpy(dtype=np.int16)
+#     # assure delta is odd
+#     delta_lst = (delta_lst + ((delta_lst+1)%2))[:,0]
     
-    # old
-    # delta = np.percentile(upper-lower,percentile)
-    # delta = delta + (delta+1)%2
-    # assure delta is odd
-    delta_lst = (delta_lst + ((delta_lst+1)%2))[:,0]
+    # delta by percentile
+    delta = np.percentile(upper-lower,percentile)
+    delta = int(delta + (delta+1)%2)
+    
     scharr_b = []
     for t in range(np.min(image)+2, np.max(image)-2):
         fil = (t > lower) & (t < upper)
@@ -72,4 +73,4 @@ def get_scharr_bounding(image, scharr, bdts_o, bdts_b, percentile=80):
             tmp = tmp / np.max(tmp)
         scharr_b_cum.append(tmp)
     
-    return scharr_b_cum, delta_lst
+    return scharr_b_cum, delta
